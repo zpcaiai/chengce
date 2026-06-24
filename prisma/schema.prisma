@@ -1,0 +1,435 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  ADVISOR
+  VIEWER
+}
+
+enum ProjectStatus {
+  DISCOVERY
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum EvidenceKind {
+  INTERVIEW
+  DOCUMENT
+  NOTE
+}
+
+enum CapabilityStatus {
+  CANDIDATE
+  CONFIRMED
+  TRANSFERRING
+  TRANSFERRED
+}
+
+enum AssetKind {
+  DECISION_RULE
+  OPERATING_PRINCIPLE
+  PLAYBOOK
+}
+
+enum AssetStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
+}
+
+enum ActionStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum FeedbackKind {
+  USED
+  REVISION_REQUESTED
+  CASE_ADDED
+}
+
+enum BillingPlan {
+  DIAGNOSTIC
+  DELIVERY
+  CONTINUITY
+}
+
+enum AssessmentKind {
+  STRESS_TEST
+  LEVERAGE
+  ORG_HEALTH
+  DECISION_GOVERNANCE
+  COLLABORATION
+}
+
+enum DecisionStatus {
+  OPEN
+  REVIEWING
+  CLOSED
+}
+
+enum Reversibility {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String?
+  passwordHash String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships  Membership[]
+  evidence     Evidence[]   @relation("EvidenceAuthor")
+  approvals    SystemAsset[] @relation("AssetApprover")
+  actions      TransferAction[] @relation("ActionOwner")
+}
+
+model Workspace {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  members   Membership[]
+  invites   WorkspaceInvite[]
+  subscription Subscription?
+  projects  TransformationProject[]
+}
+
+model WorkspaceInvite {
+  id          String         @id @default(cuid())
+  workspaceId String
+  email       String
+  role        MembershipRole @default(MEMBER)
+  token       String         @unique @default(cuid())
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime       @default(now())
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@index([workspaceId, email])
+}
+
+model Membership {
+  id          String         @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        MembershipRole @default(MEMBER)
+  createdAt   DateTime       @default(now())
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model TransformationProject {
+  id          String        @id @default(cuid())
+  workspaceId String
+  name        String
+  description String        @default("")
+  status      ProjectStatus @default(DISCOVERY)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  evidence    Evidence[]
+  capabilities CriticalCapability[]
+  assets      SystemAsset[]
+  actions     TransferAction[]
+  snapshots   MonthlySnapshot[]
+  auditLogs   AuditLog[]
+  files       SourceFile[]
+  assessments Assessment[]
+  simulations Simulation[]
+  decisions   Decision[]
+  @@index([workspaceId])
+}
+
+model Evidence {
+  id          String       @id @default(cuid())
+  projectId   String
+  authorId    String
+  kind        EvidenceKind
+  title       String
+  sourceName  String       @default("")
+  content     String
+  createdAt   DateTime     @default(now())
+  project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User         @relation("EvidenceAuthor", fields: [authorId], references: [id])
+  references  EvidenceReference[]
+  files       SourceFile[]
+  @@index([projectId, createdAt])
+}
+
+model CriticalCapability {
+  id                  String           @id @default(cuid())
+  projectId           String
+  name                String
+  description         String           @default("")
+  dependencyScore     Float            @default(0)
+  repeatabilityScore  Float            @default(0)
+  riskIfLost          String           @default("")
+  ownerName           String           @default("")
+  status              CapabilityStatus @default(CANDIDATE)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  project             TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actions             TransferAction[]
+  references          EvidenceReference[]
+  @@index([projectId, dependencyScore])
+}
+
+model SystemAsset {
+  id          String      @id @default(cuid())
+  projectId   String
+  kind        AssetKind
+  title       String
+  content     Json
+  status      AssetStatus @default(DRAFT)
+  version     Int         @default(1)
+  ownerName   String      @default("")
+  reviewAt    DateTime?
+  approvedAt  DateTime?
+  approvedById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  approvedBy  User?       @relation("AssetApprover", fields: [approvedById], references: [id])
+  references  EvidenceReference[]
+  actions     TransferAction[]
+  revisions   SystemAssetRevision[]
+  approvals   AssetApproval[]
+  feedback    PlaybookFeedback[]
+  @@index([projectId, status])
+}
+
+model SystemAssetRevision {
+  id        String      @id @default(cuid())
+  assetId   String
+  version   Int
+  title     String
+  content   Json
+  changeNote String     @default("")
+  createdById String
+  createdAt DateTime    @default(now())
+  asset     SystemAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  @@unique([assetId, version])
+  @@index([assetId, createdAt])
+}
+
+model AssetApproval {
+  id        String      @id @default(cuid())
+  assetId   String
+  approverId String
+  decision  String
+  note      String      @default("")
+  createdAt DateTime    @default(now())
+  asset     SystemAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  @@index([assetId, createdAt])
+}
+
+model PlaybookFeedback {
+  id        String       @id @default(cuid())
+  assetId   String
+  authorId  String
+  kind      FeedbackKind
+  note      String       @default("")
+  createdAt DateTime     @default(now())
+  asset     SystemAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  @@index([assetId, createdAt])
+}
+
+model SourceFile {
+  id          String   @id @default(cuid())
+  projectId   String
+  evidenceId  String?
+  originalName String
+  mimeType    String
+  storageKey  String
+  sizeBytes   Int
+  transcript  String   @default("")
+  createdAt   DateTime @default(now())
+  project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  evidence    Evidence? @relation(fields: [evidenceId], references: [id], onDelete: SetNull)
+  @@index([projectId, createdAt])
+}
+
+model EvidenceReference {
+  id         String      @id @default(cuid())
+  evidenceId String
+  capabilityId String?
+  assetId    String?
+  quote      String      @default("")
+  reason     String      @default("")
+  createdAt  DateTime    @default(now())
+  evidence   Evidence    @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  capability CriticalCapability? @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+  asset      SystemAsset? @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  @@index([evidenceId])
+  @@index([capabilityId])
+  @@index([assetId])
+}
+
+model TransferAction {
+  id           String       @id @default(cuid())
+  projectId    String
+  capabilityId String?
+  assetId      String?
+  ownerId      String?
+  ownerName    String       @default("")
+  title        String
+  description  String       @default("")
+  dueAt        DateTime?
+  status       ActionStatus @default(TODO)
+  proof        String       @default("")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  project      TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  capability   CriticalCapability? @relation(fields: [capabilityId], references: [id], onDelete: SetNull)
+  asset        SystemAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  owner        User?        @relation("ActionOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  @@index([projectId, status])
+}
+
+model MonthlySnapshot {
+  id                   String   @id @default(cuid())
+  projectId            String
+  founderDependency    Float
+  knowledgeCoverage    Float
+  decisionConsistency  Float
+  playbookAdoption     Float
+  openRiskCount        Int
+  replicationReadiness Float    @default(0)
+  resilience           Float    @default(0)
+  globalManagement     Float    @default(0)
+  summary              String
+  priorities           String[]
+  createdAt            DateTime @default(now())
+  project              TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shares               ReportShare[]
+  @@index([projectId, createdAt])
+}
+
+model ReportShare {
+  id         String          @id @default(cuid())
+  snapshotId String
+  token      String          @unique @default(cuid())
+  createdById String
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime        @default(now())
+  snapshot   MonthlySnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  @@index([snapshotId])
+}
+
+model Subscription {
+  id          String      @id @default(cuid())
+  workspaceId String      @unique
+  plan        BillingPlan
+  seats       Int         @default(3)
+  status      String      @default("trial")
+  renewsAt    DateTime?
+  stripeCustomerId String? @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model SubscriptionEvent {
+  id          String   @id @default(cuid())
+  providerEventId String @unique
+  workspaceId String?
+  eventType   String
+  payload     Json
+  processedAt DateTime @default(now())
+  @@index([workspaceId, processedAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  projectId String
+  actorId   String
+  action    String
+  target    String
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+  project   TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, createdAt])
+}
+
+model Assessment {
+  id            String         @id @default(cuid())
+  projectId     String
+  kind          AssessmentKind
+  headlineScore Float          @default(0)
+  scores        Json
+  findings      Json
+  summary       String         @default("")
+  createdById   String
+  createdAt     DateTime       @default(now())
+  project       TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, kind, createdAt])
+}
+
+model Simulation {
+  id          String   @id @default(cuid())
+  projectId   String
+  scenario    String
+  baseline    Json
+  prediction  Json
+  accuracy    Float    @default(0)
+  createdById String
+  createdAt   DateTime @default(now())
+  project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, createdAt])
+}
+
+model Decision {
+  id              String         @id @default(cuid())
+  projectId       String
+  title           String
+  context         String         @default("")
+  decision        String         @default("")
+  rationale       String         @default("")
+  ownerName       String         @default("")
+  reversibility   Reversibility  @default(MEDIUM)
+  expectedOutcome String         @default("")
+  status          DecisionStatus @default(OPEN)
+  decidedAt       DateTime?
+  createdById     String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  project         TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviews         DecisionReview[]
+  @@index([projectId, status])
+}
+
+model DecisionReview {
+  id              String   @id @default(cuid())
+  decisionId      String
+  outcome         String   @default("")
+  analysis        Json
+  governanceScore Float    @default(0)
+  reviewerName    String   @default("")
+  createdById     String
+  createdAt       DateTime @default(now())
+  decision        Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
+  @@index([decisionId, createdAt])
+}

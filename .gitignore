@@ -1,0 +1,8 @@
+node_modules
+.next
+.env
+uploads
+*.log
+
+# Prisma generated client
+/src/generated

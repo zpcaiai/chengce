@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: chengce
+      POSTGRES_USER: chengce
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chengce-local-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chengce -d chengce"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes: [postgres_data:/var/lib/postgresql/data]
+  app:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://chengce:${POSTGRES_PASSWORD:-chengce-local-only}@db:5432/chengce
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_DIAGNOSTIC: ${STRIPE_PRICE_DIAGNOSTIC:-}
+      STRIPE_PRICE_DELIVERY: ${STRIPE_PRICE_DELIVERY:-}
+      STRIPE_PRICE_CONTINUITY: ${STRIPE_PRICE_CONTINUITY:-}
+    ports: ["3000:3000"]
+volumes:
+  postgres_data:

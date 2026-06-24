@@ -1,0 +1,30 @@
+import { PrismaClient } from "../src/generated/prisma";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const user = await prisma.user.upsert({ where: { email: "owner@chengce.local" }, update: {}, create: { id: "usr_local", email: "owner@chengce.local", name: "承策演示负责人" } });
+  const workspace = await prisma.workspace.upsert({ where: { slug: "northstar-demo" }, update: {}, create: { name: "北极星科技", slug: "northstar-demo", members: { create: { userId: user.id, role: "OWNER" } } } });
+  const project = await prisma.transformationProject.upsert({ where: { id: "project_northstar" }, update: {}, create: { id: "project_northstar", workspaceId: workspace.id, name: "大客户能力转移", description: "将创始人的大客户判断和提案经验转化为销售团队可执行的系统。", status: "ACTIVE" } });
+  const evidence = await prisma.evidence.upsert({ where: { id: "evidence_founder" }, update: {}, create: { id: "evidence_founder", projectId: project.id, authorId: user.id, kind: "INTERVIEW", title: "创始人访谈：大客户决策", sourceName: "CEO · 2026-06-24", content: "我会亲自审核每一份企业客户提案。不是因为团队不会写，而是他们常忽略采购人、实际使用者和技术负责人的目标不一致。只要需要超过两周的定制开发，必须先验证年度合同额、可复用性和决策链条。" } });
+  const capability = await prisma.criticalCapability.upsert({ where: { id: "capability_enterprise" }, update: {}, create: { id: "capability_enterprise", projectId: project.id, name: "大客户提案资格判断", description: "在承诺定制工作前，识别真实预算、决策链和可复用性。", dependencyScore: 0.86, repeatabilityScore: 0.34, riskIfLost: "销售团队可能接受低利润的定制承诺，拖累产品节奏。", ownerName: "销售负责人", status: "TRANSFERRING" } });
+  const asset = await prisma.systemAsset.upsert({ where: { id: "asset_qualify" }, update: {}, create: { id: "asset_qualify", projectId: project.id, kind: "DECISION_RULE", title: "大客户提案资格判断", ownerName: "销售负责人", status: "APPROVED", approvedAt: new Date(), approvedById: user.id, content: { purpose: "保护毛利和产品节奏。", whenToUse: "任何需要定制开发的大客户提案前。", owner: "销售负责人", trigger: "客户要求报价或定制方案。", steps: ["记录采购人、使用者和技术负责人的目标。", "确认年度合同额与决策链条。", "评估定制是否可复用；超过两周开发必须升级评审。"], doneWhen: "留下书面 go/no-go 决定和下一责任人。", exceptions: ["战略账户可由 CEO 特批。"], examples: ["年度合同额明确且可复用的定制，可进入方案阶段。"] } } });
+  await prisma.evidenceReference.upsert({ where: { id: "ref_capability" }, update: {}, create: { id: "ref_capability", evidenceId: evidence.id, capabilityId: capability.id, quote: "我会亲自审核每一份企业客户提案。", reason: "显示该判断目前集中于创始人。" } });
+  await prisma.evidenceReference.upsert({ where: { id: "ref_asset" }, update: {}, create: { id: "ref_asset", evidenceId: evidence.id, assetId: asset.id, quote: "超过两周的定制开发，必须先验证年度合同额、可复用性和决策链条。", reason: "定义了规则的升级阈值。" } });
+  await prisma.transferAction.upsert({ where: { id: "action_shadow" }, update: {}, create: { id: "action_shadow", projectId: project.id, capabilityId: capability.id, ownerName: "销售负责人", title: "完成三次影子提案评审", description: "销售负责人按规则独立评审，CEO 只对差异项给反馈。", status: "IN_PROGRESS" } });
+
+  // Monthly report so the report card + PDF have data on first run.
+  await prisma.monthlySnapshot.upsert({ where: { id: "snapshot_demo" }, update: {}, create: { id: "snapshot_demo", projectId: project.id, founderDependency: 0.78, knowledgeCoverage: 0.5, decisionConsistency: 0.4, playbookAdoption: 0.33, openRiskCount: 1, replicationReadiness: 0.41, resilience: 0.46, globalManagement: 0.38, summary: "创始人依赖 78%，可复制度 41%；已批准运营资产 1 项，仍有 1 项高风险能力未关闭。", priorities: ["把“大客户提案资格判断”从创始人依赖中转移出去。", "复审并批准更多决策规则。", "完成影子提案评审并登记验证。"] } });
+
+  // Organization diagnostic (key-person stress test).
+  await prisma.assessment.upsert({ where: { id: "assessment_stress" }, update: {}, create: { id: "assessment_stress", projectId: project.id, kind: "STRESS_TEST", headlineScore: 0.32, createdById: user.id, summary: "成功仍高度集中在创始人与单一销售判断。 最先断裂：创始人缺席时大客户提案质量下降。", scores: { dimensions: [{ key: "founderIndependence", label: "创始人独立度", score: 0.25, finding: "大客户提案全部由创始人拍板。", evidenceTitle: "创始人访谈：大客户决策", quote: "我会亲自审核每一份企业客户提案。" }], dependencyMap: [{ area: "大客户提案判断", dependency: 0.86, evidenceTitle: "创始人访谈：大客户决策", quote: "我会亲自审核每一份企业客户提案。" }], founderDependency: 0.75, resilience: 0.32, dependencyRisk: 0.86, scenario: "创始人缺席时大客户提案质量下降。" }, findings: { metrics: [{ label: "创始人独立度", value: 0.25 }], items: [{ label: "创始人独立度", detail: "大客户提案全部由创始人拍板。", evidenceTitle: "创始人访谈：大客户决策", quote: "我会亲自审核每一份企业客户提案。" }, { label: "依赖：大客户提案判断", detail: "依赖集中度 86%", evidenceTitle: "创始人访谈：大客户决策", quote: "我会亲自审核每一份企业客户提案。" }], recommendations: ["把提案判断编码为决策规则并指定第二责任人", "对核心客户关系做交接演练"] } } });
+
+  // Decision governance: a logged decision + its retrospective.
+  const decision = await prisma.decision.upsert({ where: { id: "decision_demo" }, update: {}, create: { id: "decision_demo", projectId: project.id, title: "接下一个大客户的定制需求", context: "对方预算高但要求大量定制。", decision: "接了，并承诺 3 个月交付。", rationale: "看重 logo 与现金流。", ownerName: "商务负责人", reversibility: "LOW", expectedOutcome: "树立标杆客户。", status: "CLOSED", decidedAt: new Date(), createdById: user.id } });
+  await prisma.decisionReview.upsert({ where: { id: "review_demo" }, update: {}, create: { id: "review_demo", decisionId: decision.id, outcome: "定制拖累路线图两个季度，毛利低于预期。", reviewerName: "CEO", governanceScore: 0.45, createdById: user.id, analysis: { summary: "结果不佳，更关键的是流程：不可逆承诺前未用既定标准评估偏离主线的风险。", soundness: 0.4, governanceScore: 0.45, lessons: ["不可逆的大额定制承诺应先过“是否偏离主线”的硬标准。"], suggestedRule: "当定制需求要求不可逆承诺且偏离核心路线图时，默认拒绝，除非创始人按既定标准例外批准。", followUps: [{ title: "把大客户定制评估标准写成决策规则", ownerHint: "商务负责人" }] } } });
+
+  // Organizational digital twin: one scenario simulation.
+  await prisma.simulation.upsert({ where: { id: "simulation_demo" }, update: {}, create: { id: "simulation_demo", projectId: project.id, scenario: "创始人在 6 个月内退出日常运营", accuracy: 0.5, createdById: user.id, baseline: { metrics: [{ label: "可复制度", value: 0.41 }, { label: "创始人依赖", value: 0.78 }], dependencies: ["大客户提案资格判断"], capabilities: ["大客户提案资格判断"] }, prediction: { prediction: "若先把提案判断授权下去，6 个月后可复制度与韧性会明显改善；否则过渡期决策会变慢。", effects: [{ dimension: "可复制度", direction: "UP", magnitude: 0.35, rationale: "被迫把隐性判断显性化为规则。" }, { dimension: "决策速度", direction: "DOWN", magnitude: 0.3, rationale: "授权完成前会变慢。" }], risks: ["未先授权则过渡期管道质量下滑。"], recommendations: ["先把提案判断编码为决策规则并指定 DRI。"] } } });
+}
+
+main().finally(() => prisma.$disconnect());
