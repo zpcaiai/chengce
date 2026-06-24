@@ -56,6 +56,13 @@ enum ActionStatus {
   DONE
 }
 
+enum ExperimentStatus {
+  PLANNED
+  RUNNING
+  LEARNED
+  PAUSED
+}
+
 enum FeedbackKind {
   USED
   REVISION_REQUESTED
@@ -143,6 +150,9 @@ model TransformationProject {
   workspaceId String
   name        String
   description String        @default("")
+  targetUser  String        @default("")
+  mvpOutcome  String        @default("")
+  successMetric String      @default("")
   status      ProjectStatus @default(DISCOVERY)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -157,7 +167,40 @@ model TransformationProject {
   assessments Assessment[]
   simulations Simulation[]
   decisions   Decision[]
+  experiments ProjectExperiment[]
+  weeklyReviews WeeklyReview[]
   @@index([workspaceId])
+}
+
+model ProjectExperiment {
+  id          String           @id @default(cuid())
+  projectId   String
+  hypothesis  String
+  method      String           @default("")
+  metric      String           @default("")
+  ownerName   String           @default("")
+  status      ExperimentStatus @default(PLANNED)
+  result      String           @default("")
+  nextDecision String          @default("")
+  dueAt       DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, status])
+}
+
+model WeeklyReview {
+  id          String   @id @default(cuid())
+  projectId   String
+  weekOf      DateTime @default(now())
+  outcome     String
+  evidence    String   @default("")
+  risk        String   @default("")
+  nextFocus   String
+  createdById String
+  createdAt   DateTime @default(now())
+  project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, weekOf])
 }
 
 model Evidence {

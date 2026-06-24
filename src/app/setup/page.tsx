@@ -1,14 +1,11 @@
 import { AppShell } from "@/components/AppShell";
-import { CreateProjectForm } from "@/components/CreateProjectForm";
-import { CreateWorkspaceForm } from "@/components/CreateWorkspaceForm";
-import { prisma } from "@/lib/db";
+import { WorkspaceTemplateLauncher } from "@/components/WorkspaceTemplateLauncher";
 import { requirePageUser } from "@/lib/page-auth";
+import { workspaceTemplates } from "@/lib/workspace-templates";
 
 export const dynamic = "force-dynamic";
 
-export default async function SetupPage({ searchParams }: { searchParams: Promise<{ workspace?: string }> }) {
-  const userId = await requirePageUser("/setup"); const { workspace: workspaceId } = await searchParams;
-  const workspaces = await prisma.workspace.findMany({ where: { members: { some: { userId } } }, orderBy: { updatedAt: "desc" } });
-  const workspace = workspaces.find((w) => w.id === workspaceId) ?? workspaces[0];
-  return <AppShell><div className="max-w-2xl"><p className="text-sm text-emerald-300">承策启动向导</p><h1 className="mt-2 text-3xl font-semibold">先建立可信的组织边界。</h1><p className="mt-3 text-slate-400">项目资料、AI 检索、审批与导出都归属一个工作区。组织 ID 永远由服务器从成员关系判定。</p><div className="mt-8 grid gap-5 md:grid-cols-2"><section className="card"><h2 className="text-lg font-semibold">1 · 工作区</h2><div className="mt-4"><CreateWorkspaceForm /></div></section><section className="card"><h2 className="text-lg font-semibold">2 · 转移项目</h2>{workspace ? <div className="mt-4"><p className="mb-3 text-sm text-slate-400">当前工作区：{workspace.name}</p><CreateProjectForm workspaceId={workspace.id} /></div> : <p className="mt-4 text-sm text-slate-500">先创建一个工作区。</p>}</section></div></div></AppShell>;
+export default async function SetupPage() {
+  await requirePageUser("/setup");
+  return <AppShell><div className="max-w-6xl"><p className="text-sm text-emerald-300">承策模板工作台</p><h1 className="mt-2 text-3xl font-semibold">不要从空白开始，先选一套能跑起来的业务系统。</h1><p className="mt-3 max-w-3xl text-slate-400">每个模板已经预置一个业务目标、行动、实验、证据占位与可编辑手册。先用它跑真实业务，再把内容改成你自己的事实、负责人和规则。</p><div className="mt-8"><WorkspaceTemplateLauncher templates={workspaceTemplates}/></div></div></AppShell>;
 }
