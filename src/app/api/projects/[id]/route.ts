@@ -1,5 +1,5 @@
 import { getUserId } from "@/lib/auth";
-import { parseBody, route } from "@/lib/http";
+import { parseBody, route, HttpError } from "@/lib/http";
 import { requireProjectAccess } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
@@ -15,8 +15,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   return route(async () => {
     const userId = await getUserId(); const { id } = await params;
-    await requireProjectAccess(userId, id, "MEMBER");
-    const body = await parseBody(req, z.object({ targetUser: z.string().max(300).optional(), mvpOutcome: z.string().max(600).optional(), successMetric: z.string().max(300).optional() }));
+    const { project: current } = await requireProjectAccess(userId, id, "MEMBER");
+    const body = await parseBody(req, z.object({ targetUser: z.string().max(300).optional(), mvpOutcome: z.string().max(600).optional(), successMetric: z.string().max(300).optional(), clientId: z.string().cuid().nullable().optional() }));
+    if (body.clientId) { const client = await prisma.client.findUnique({ where: { id: body.clientId }, select: { workspaceId: true } }); if (!client || client.workspaceId !== current.workspaceId) throw new HttpError(400, "客户不属于该工作区"); }
     const project = await prisma.transformationProject.update({ where: { id }, data: body });
     await prisma.auditLog.create({ data: { projectId: id, actorId: userId, action: "project.mvp.updated", target: id, detail: "Updated MVP brief" } });
     return { project };

@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  output        = "../src/generated/prisma"
+  output        = "../src/generated/_tmp_orders"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -135,6 +135,8 @@ model Workspace {
   invites   WorkspaceInvite[]
   subscription Subscription?
   projects  TransformationProject[]
+  clients   Client[]
+  orders    Order[]
 }
 
 model WorkspaceInvite {
@@ -165,6 +167,7 @@ model Membership {
 model TransformationProject {
   id          String        @id @default(cuid())
   workspaceId String
+  clientId    String?
   name        String
   description String        @default("")
   targetUser  String        @default("")
@@ -186,7 +189,9 @@ model TransformationProject {
   decisions   Decision[]
   experiments ProjectExperiment[]
   weeklyReviews WeeklyReview[]
+  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   @@index([workspaceId])
+  @@index([clientId])
 }
 
 model ProjectExperiment {
@@ -358,6 +363,9 @@ model TransferAction {
   dueAt        DateTime?
   status       ActionStatus @default(TODO)
   proof        String       @default("")
+  outcome      String       @default("")
+  impact       Int?
+  completedAt  DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   project      TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -534,4 +542,68 @@ model Deck {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   @@index([createdById, createdAt])
+}
+
+enum OrderKind {
+  SUBSCRIPTION
+  PACKAGE
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  MOCK
+  ALIPAY
+  WECHAT
+}
+
+enum ClientStage {
+  LEAD
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+model Client {
+  id           String      @id @default(cuid())
+  workspaceId  String
+  name         String
+  industry     String      @default("")
+  stage        ClientStage @default(LEAD)
+  contactName  String      @default("")
+  contactEmail String      @default("")
+  notes        String      @default("")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  workspace    Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects     TransformationProject[]
+  @@index([workspaceId, createdAt])
+}
+
+model Order {
+  id          String          @id @default(cuid())
+  workspaceId String
+  kind        OrderKind
+  plan        BillingPlan?
+  seats       Int             @default(1)
+  period      String          @default("MONTHLY")
+  packageId   String          @default("")
+  title       String
+  amount      Decimal         @db.Decimal(10, 2)
+  currency    String          @default("CNY")
+  status      OrderStatus     @default(CREATED)
+  provider    PaymentProvider @default(MOCK)
+  outTradeNo  String          @unique
+  note        String          @default("")
+  createdById String
+  paidAt      DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@index([workspaceId, createdAt])
 }

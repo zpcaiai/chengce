@@ -1,0 +1,15 @@
+/Users/stephen/Documents/Projects/python/chengce/bin/Debug/net10.0/chengce
+/Users/stephen/Documents/Projects/python/chengce/bin/Debug/net10.0/chengce.deps.json
+/Users/stephen/Documents/Projects/python/chengce/bin/Debug/net10.0/chengce.runtimeconfig.json
+/Users/stephen/Documents/Projects/python/chengce/bin/Debug/net10.0/chengce.dll
+/Users/stephen/Documents/Projects/python/chengce/bin/Debug/net10.0/chengce.pdb
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.GeneratedMSBuildEditorConfig.editorconfig
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.AssemblyInfoInputs.cache
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.AssemblyInfo.cs
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.csproj.CoreCompileInputs.cache
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.sourcelink.json
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.dll
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/refint/chengce.dll
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.pdb
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/chengce.genruntimeconfig.cache
+/Users/stephen/Documents/Projects/python/chengce/obj/Debug/net10.0/ref/chengce.dll

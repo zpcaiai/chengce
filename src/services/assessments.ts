@@ -9,11 +9,19 @@ async function loadEvidence(projectId: string) {
   return ev.map((e) => ({ title: e.title, content: e.content }));
 }
 
+const ACTION_TAKE = 12;
+/** Completed actions with a recorded outcome are fed back into every diagnosis, so
+ *  the loop closes: execution results actually move the next assessment. */
+async function loadActionOutcomes(projectId: string) {
+  const acts = await prisma.transferAction.findMany({ where: { projectId, status: "DONE", NOT: { outcome: "" } }, orderBy: { completedAt: "desc" }, take: ACTION_TAKE });
+  return acts.map((a) => ({ title: `已完成行动成效：${a.title}`, content: `${a.outcome}${typeof a.impact === "number" ? `（成效评级 ${a.impact > 0 ? "+" : ""}${a.impact}）` : ""}` }));
+}
+
 /** Run an assessment, persist it, and write an audit-log entry — all in one transaction. */
 export async function runAssessment(projectId: string, kind: AssessmentKind, userId: string) {
   const project = await prisma.transformationProject.findUniqueOrThrow({ where: { id: projectId }, select: { name: true } });
-  const evidence = await loadEvidence(projectId);
-  const result = await computeAssessment(project.name, kind, evidence);
+  const [evidence, outcomes] = await Promise.all([loadEvidence(projectId), loadActionOutcomes(projectId)]);
+  const result = await computeAssessment(project.name, kind, [...evidence, ...outcomes]);
   return prisma.$transaction(async (tx) => {
     const assessment = await tx.assessment.create({
       data: {
