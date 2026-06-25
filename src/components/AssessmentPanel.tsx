@@ -12,6 +12,7 @@ export function AssessmentPanel({ projectId, assessments, canRun }: { projectId:
   const router = useRouter();
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [added, setAdded] = useState<Set<string>>(new Set());
 
   // `assessments` arrives newest-first, so the first hit per kind is the latest.
   const latest = new Map<string, Assessment>();
@@ -31,6 +32,15 @@ export function AssessmentPanel({ projectId, assessments, canRun }: { projectId:
     }
   }
 
+  async function addAction(title: string, source: string) {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/actions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: title.slice(0, 160), description: source }) });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || "加入失败"); }
+      setAdded((s) => new Set(s).add(title));
+      router.refresh();
+    } catch (err) { setError(err instanceof Error ? err.message : "加入失败"); }
+  }
+
   return <section className="space-y-4">
     <div>
       <p className="text-xs font-medium uppercase tracking-wider text-emerald-400">5</p>
@@ -48,11 +58,11 @@ export function AssessmentPanel({ projectId, assessments, canRun }: { projectId:
             {canRun && <button className="button-secondary !px-3 !py-1 text-xs" disabled={busy === kind} onClick={() => run(kind)}>{busy === kind ? "运行中…" : a ? "重新运行" : "运行"}</button>}
           </div>
           {a ? <div className="mt-4 space-y-3">
-            <div className="flex items-baseline gap-2"><span className="text-2xl font-semibold text-emerald-300">{percent(a.headlineScore)}</span><span className="text-xs text-slate-500">{date(a.createdAt)}</span></div>
+            <div className="flex flex-wrap items-baseline gap-2"><span className="text-2xl font-semibold text-emerald-300">{percent(a.headlineScore)}</span>{a.findings.confidence != null && <span className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400">可信度 {percent(a.findings.confidence)} · n={a.findings.samples}</span>}<span className="text-xs text-slate-500">{date(a.createdAt)}</span></div>
             <p className="text-sm text-slate-300">{a.summary}</p>
             <div className="space-y-2">{a.findings.metrics.map((m) => <div key={m.label}><div className="flex justify-between text-xs text-slate-400"><span>{m.label}</span><span>{percent(m.value)}</span></div><div className="mt-1 h-1.5 rounded bg-slate-800"><div className="h-1.5 rounded bg-emerald-600" style={{ width: percent(m.value) }}/></div></div>)}</div>
             {a.findings.items.slice(0, 3).map((it, i) => <div key={i} className="border-l-2 border-slate-700 pl-3"><p className="text-sm text-slate-300">{it.label}<span className="text-slate-500">：{it.detail}</span></p>{it.quote && <p className="mt-0.5 text-xs text-slate-500">“{it.quote}”{it.evidenceTitle ? ` — ${it.evidenceTitle}` : ""}</p>}</div>)}
-            {a.findings.recommendations.length > 0 && <ul className="list-disc space-y-1 pl-5 text-sm text-emerald-200/90">{a.findings.recommendations.slice(0, 3).map((r) => <li key={r}>{r}</li>)}</ul>}
+            {a.findings.recommendations.length > 0 && <ul className="space-y-1 text-sm text-emerald-200/90">{a.findings.recommendations.slice(0, 3).map((r) => <li key={r} className="flex items-start justify-between gap-2"><span>· {r}</span>{canRun && <button className="shrink-0 text-xs text-emerald-300 hover:underline disabled:text-slate-600" disabled={added.has(r)} onClick={() => addAction(r, `来自诊断：${meta.label}`)}>{added.has(r) ? "已加入" : "+ 行动"}</button>}</li>)}</ul>}
           </div> : <p className="mt-4 text-sm text-slate-500">尚未运行。点击“运行”，基于现有证据生成评分、引文与建议。</p>}
         </article>;
       })}

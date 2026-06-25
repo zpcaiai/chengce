@@ -21,7 +21,9 @@
     "react-dom": "^19.0.0",
     "stripe": "^18.5.0",
     "zod": "^3.24.1",
-    "zod-to-json-schema": "^3.25.2"
+    "zod-to-json-schema": "^3.25.2",
+    "pptxgenjs": "^4.0.1",
+    "exceljs": "^4.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

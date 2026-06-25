@@ -63,6 +63,20 @@ enum ExperimentStatus {
   PAUSED
 }
 
+enum NotificationKind {
+  REVIEW_DUE
+  ACTION_BLOCKED
+  DEPENDENCY_RISE
+  REPORT_READY
+  MENTION
+}
+
+enum CommentTarget {
+  CAPABILITY
+  ASSET
+  DECISION
+}
+
 enum FeedbackKind {
   USED
   REVISION_REQUESTED
@@ -112,6 +126,9 @@ model Workspace {
   id        String       @id @default(cuid())
   name      String
   slug      String       @unique
+  brandName    String?
+  brandLogoUrl String?
+  brandColor   String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   members   Membership[]
@@ -211,6 +228,7 @@ model Evidence {
   title       String
   sourceName  String       @default("")
   content     String
+  embedding   Float[]
   createdAt   DateTime     @default(now())
   project     TransformationProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
   author      User         @relation("EvidenceAuthor", fields: [authorId], references: [id])
@@ -475,4 +493,31 @@ model DecisionReview {
   createdAt       DateTime @default(now())
   decision        Decision @relation(fields: [decisionId], references: [id], onDelete: Cascade)
   @@index([decisionId, createdAt])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  workspaceId String?
+  projectId   String?
+  kind        NotificationKind
+  title       String
+  body        String           @default("")
+  link        String           @default("")
+  dedupeKey   String           @default("")
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  @@index([userId, readAt, createdAt])
+  @@index([userId, dedupeKey])
+}
+
+model Comment {
+  id          String        @id @default(cuid())
+  projectId   String
+  targetType  CommentTarget
+  targetId    String
+  authorId    String
+  body        String
+  createdAt   DateTime      @default(now())
+  @@index([projectId, targetType, targetId, createdAt])
 }

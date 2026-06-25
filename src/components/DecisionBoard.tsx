@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CommentThread } from "@/components/CommentThread";
 
 type Analysis = { summary: string; soundness: number; governanceScore: number; lessons: string[]; suggestedRule: string; followUps: { title: string; ownerHint: string }[] };
 type Review = { id: string; outcome: string; analysis: Analysis; governanceScore: number; reviewerName: string; createdAt: string };
@@ -43,7 +44,7 @@ export function DecisionBoard({ projectId, decisions, canRun }: { projectId: str
     </div>
     {error && <p className="rounded-lg border border-rose-900 bg-rose-950/50 px-4 py-3 text-sm text-rose-300">{error}</p>}
     {canRun && <DecisionForm projectId={projectId} busy={busy} send={send} />}
-    {decisions.length ? <div className="space-y-3">{decisions.map((d) => <DecisionCard key={d.id} decision={d} busy={busy} canRun={canRun} send={send} />)}</div>
+    {decisions.length ? <div className="space-y-3">{decisions.map((d) => <DecisionCard key={d.id} decision={d} projectId={projectId} busy={busy} canRun={canRun} send={send} />)}</div>
       : <p className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-sm text-slate-500">还没有登记决策。先记录一个重要决策的背景、决定与预期。</p>}
   </section>;
 }
@@ -60,10 +61,11 @@ function DecisionForm({ projectId, busy, send }: { projectId: string; busy: stri
   </form>;
 }
 
-function DecisionCard({ decision, busy, canRun, send }: { decision: Decision; busy: string; canRun: boolean; send: (k: string, u: string, m: string, p: unknown) => Promise<boolean> }) {
+function DecisionCard({ decision, projectId, busy, canRun, send }: { decision: Decision; projectId: string; busy: string; canRun: boolean; send: (k: string, u: string, m: string, p: unknown) => Promise<boolean> }) {
   const [outcome, setOutcome] = useState("");
   const [reviewer, setReviewer] = useState("");
   const [open, setOpen] = useState(false);
+  const [added, setAdded] = useState<Set<string>>(new Set());
   const review = decision.reviews[0];
   const st = STATUS[decision.status];
   return <article className="card">
@@ -78,8 +80,8 @@ function DecisionCard({ decision, busy, canRun, send }: { decision: Decision; bu
       <p className="text-sm text-slate-300">{review.analysis.summary}</p>
       <div className="mt-3 grid grid-cols-2 gap-3"><Bar label="决策质量（流程）" value={review.analysis.soundness} /><Bar label="治理得分" value={review.governanceScore} /></div>
       {review.analysis.lessons.length > 0 && <ul className="mt-3 list-disc space-y-0.5 pl-5 text-sm text-slate-300">{review.analysis.lessons.map((l) => <li key={l}>{l}</li>)}</ul>}
-      {review.analysis.suggestedRule && <p className="mt-3 rounded-lg border-l-2 border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-200">建议规则：{review.analysis.suggestedRule}</p>}
-      {review.analysis.followUps.length > 0 && <div className="mt-3 text-sm text-slate-400">跟进：{review.analysis.followUps.map((u) => `${u.title}（${u.ownerHint}）`).join("；")}</div>}
+      {review.analysis.suggestedRule && <div className="mt-3 rounded-lg border-l-2 border-emerald-700 bg-emerald-950/30 px-3 py-2"><p className="text-sm text-emerald-200">建议规则：{review.analysis.suggestedRule}</p>{canRun && <button className="mt-2 text-xs text-emerald-300 hover:underline" disabled={busy === `adopt-${decision.id}`} onClick={() => send(`adopt-${decision.id}`, `/api/decisions/${decision.id}/adopt-rule`, "POST", {})}>{busy === `adopt-${decision.id}` ? "采纳中…" : "采纳为决策规则（草稿）"}</button>}</div>}
+      {review.analysis.followUps.length > 0 && <div className="mt-3"><p className="text-xs text-slate-400">跟进动作</p><ul className="mt-1 space-y-1 text-sm text-slate-300">{review.analysis.followUps.map((u, i) => <li key={i} className="flex items-start justify-between gap-2"><span>· {u.title}{u.ownerHint ? `（${u.ownerHint}）` : ""}</span>{canRun && <button className="shrink-0 text-xs text-emerald-300 hover:underline disabled:text-slate-600" disabled={added.has(u.title) || busy === `fu-${decision.id}-${i}`} onClick={async () => { if (await send(`fu-${decision.id}-${i}`, `/api/projects/${projectId}/actions`, "POST", { title: u.title.slice(0, 160), ownerName: u.ownerHint, description: `来自决策复盘：${decision.title}` })) setAdded((set) => new Set(set).add(u.title)); }}>{added.has(u.title) ? "已加入" : "+ 行动"}</button>}</li>)}</ul></div>}
     </div>}
 
     {canRun && <div className="mt-3">
@@ -91,6 +93,7 @@ function DecisionCard({ decision, busy, canRun, send }: { decision: Decision; bu
             <button className="button-secondary !px-3 !py-1 text-xs" onClick={() => setOpen(false)}>取消</button></div>
         </div>}
     </div>}
+    <CommentThread projectId={projectId} targetType="DECISION" targetId={decision.id} canComment={canRun}/>
   </article>;
 }
 

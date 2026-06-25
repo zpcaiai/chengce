@@ -2,7 +2,7 @@
 // normalize its output into a headline score + UI-ready findings. No prisma here,
 // so this whole path is unit-testable against the mock AI provider.
 import type { AssessmentKind } from "@/generated/prisma";
-import { mean } from "@/lib/scoring";
+import { mean, sampleConfidence } from "@/lib/scoring";
 import { leverageScore } from "@/lib/scoring/oikos";
 import type { AssessmentFindings, AssessmentItem } from "@/domains/assessment";
 import {
@@ -40,7 +40,7 @@ function fromDimensions(dimensions: ScoredDimension[], recommendations: string[]
 }
 
 /** Run the agent for a kind over the project's evidence and normalize the result. */
-export async function computeAssessment(company: string, kind: AssessmentKind, evidence: { title: string; content: string }[]): Promise<AssessmentResult> {
+async function computeAssessmentRaw(company: string, kind: AssessmentKind, evidence: { title: string; content: string }[]): Promise<AssessmentResult> {
   if (kind === "STRESS_TEST") {
     const out = await KeyPersonStressTest.run({ company, evidence });
     const dependencyItems: AssessmentItem[] = out.dependencyMap.map((d) => ({
@@ -81,4 +81,12 @@ export async function computeAssessment(company: string, kind: AssessmentKind, e
   const agent = kind === "DECISION_GOVERNANCE" ? DecisionGovernanceAnalyst : kind === "ORG_HEALTH" ? OrgHealthAnalyst : CollaborationAnalyst;
   const out = await agent.run({ company, evidence });
   return { ...fromDimensions(out.dimensions, out.recommendations), summary: out.summary };
+}
+
+/** Public entry: run the assessment, then attach an honest confidence band from the
+ *  evidence sample size so the UI never shows false precision. */
+export async function computeAssessment(company: string, kind: AssessmentKind, evidence: { title: string; content: string }[]): Promise<AssessmentResult> {
+  const result = await computeAssessmentRaw(company, kind, evidence);
+  const samples = evidence.length;
+  return { ...result, findings: { ...result.findings, confidence: sampleConfidence(samples), samples } };
 }

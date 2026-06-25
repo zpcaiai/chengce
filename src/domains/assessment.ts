@@ -7,6 +7,9 @@ export type AssessmentFindings = {
   metrics: AssessmentMetric[];
   items: AssessmentItem[];
   recommendations: string[];
+  /** Honest measurement validity: confidence in [0,1] and the evidence sample size behind it. */
+  confidence?: number;
+  samples?: number;
 };
 
 export const ASSESSMENT_META: Record<AssessmentKind, { label: string; blurb: string; higherIsHealthy: boolean }> = {

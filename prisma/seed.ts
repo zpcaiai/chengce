@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
   const user = await prisma.user.upsert({ where: { email: "owner@chengce.local" }, update: {}, create: { id: "usr_local", email: "owner@chengce.local", name: "承策演示负责人" } });
   const workspace = await prisma.workspace.upsert({ where: { slug: "northstar-demo" }, update: {}, create: { name: "北极星科技", slug: "northstar-demo", members: { create: { userId: user.id, role: "OWNER" } } } });
-  const project = await prisma.transformationProject.upsert({ where: { id: "project_northstar" }, update: {}, create: { id: "project_northstar", workspaceId: workspace.id, name: "大客户能力转移", description: "将创始人的大客户判断和提案经验转化为销售团队可执行的系统。", status: "ACTIVE" } });
+  const project = await prisma.transformationProject.upsert({ where: { id: "project_northstar" }, update: {}, create: { id: "project_northstar", workspaceId: workspace.id, name: "大客户能力转移", description: "将创始人的大客户判断和提案经验转化为销售团队可执行的系统。", status: "ACTIVE", targetUser: "希望销售负责人能独立判断大客户定制需求，而不必每次回到创始人。", mvpOutcome: "14 天内产出《创始人可复制蓝图》，并完成一次真实能力交接。", successMetric: "下月报告中创始人依赖下降，且至少一项关键能力进入“转移中”。" } });
   const evidence = await prisma.evidence.upsert({ where: { id: "evidence_founder" }, update: {}, create: { id: "evidence_founder", projectId: project.id, authorId: user.id, kind: "INTERVIEW", title: "创始人访谈：大客户决策", sourceName: "CEO · 2026-06-24", content: "我会亲自审核每一份企业客户提案。不是因为团队不会写，而是他们常忽略采购人、实际使用者和技术负责人的目标不一致。只要需要超过两周的定制开发，必须先验证年度合同额、可复用性和决策链条。" } });
   const capability = await prisma.criticalCapability.upsert({ where: { id: "capability_enterprise" }, update: {}, create: { id: "capability_enterprise", projectId: project.id, name: "大客户提案资格判断", description: "在承诺定制工作前，识别真实预算、决策链和可复用性。", dependencyScore: 0.86, repeatabilityScore: 0.34, riskIfLost: "销售团队可能接受低利润的定制承诺，拖累产品节奏。", ownerName: "销售负责人", status: "TRANSFERRING" } });
   const asset = await prisma.systemAsset.upsert({ where: { id: "asset_qualify" }, update: {}, create: { id: "asset_qualify", projectId: project.id, kind: "DECISION_RULE", title: "大客户提案资格判断", ownerName: "销售负责人", status: "APPROVED", approvedAt: new Date(), approvedById: user.id, content: { purpose: "保护毛利和产品节奏。", whenToUse: "任何需要定制开发的大客户提案前。", owner: "销售负责人", trigger: "客户要求报价或定制方案。", steps: ["记录采购人、使用者和技术负责人的目标。", "确认年度合同额与决策链条。", "评估定制是否可复用；超过两周开发必须升级评审。"], doneWhen: "留下书面 go/no-go 决定和下一责任人。", exceptions: ["战略账户可由 CEO 特批。"], examples: ["年度合同额明确且可复用的定制，可进入方案阶段。"] } } });
@@ -25,6 +25,10 @@ async function main() {
 
   // Organizational digital twin: one scenario simulation.
   await prisma.simulation.upsert({ where: { id: "simulation_demo" }, update: {}, create: { id: "simulation_demo", projectId: project.id, scenario: "创始人在 6 个月内退出日常运营", accuracy: 0.5, createdById: user.id, baseline: { metrics: [{ label: "可复制度", value: 0.41 }, { label: "创始人依赖", value: 0.78 }], dependencies: ["大客户提案资格判断"], capabilities: ["大客户提案资格判断"] }, prediction: { prediction: "若先把提案判断授权下去，6 个月后可复制度与韧性会明显改善；否则过渡期决策会变慢。", effects: [{ dimension: "可复制度", direction: "UP", magnitude: 0.35, rationale: "被迫把隐性判断显性化为规则。" }, { dimension: "决策速度", direction: "DOWN", magnitude: 0.3, rationale: "授权完成前会变慢。" }], risks: ["未先授权则过渡期管道质量下滑。"], recommendations: ["先把提案判断编码为决策规则并指定 DRI。"] } } });
+
+  // MVP experiment + a weekly review so those sections are populated on first run.
+  await prisma.projectExperiment.upsert({ where: { id: "experiment_demo" }, update: {}, create: { id: "experiment_demo", projectId: project.id, hypothesis: "若销售负责人按规则独立评审大客户提案，签单质量不会下降。", method: "下三个大客户提案由负责人先独立 go/no-go，创始人只对差异项复核。", metric: "提案通过后的毛利与交付准时率", ownerName: "销售负责人", status: "RUNNING" } });
+  await prisma.weeklyReview.upsert({ where: { id: "weekly_demo" }, update: {}, create: { id: "weekly_demo", projectId: project.id, createdById: user.id, weekOf: new Date(), outcome: "完成两次影子提案评审，负责人判断与创始人一致。", evidence: "两份评审记录 + 毛利数据", risk: "仍缺少一份不可逆承诺类的演练。", nextFocus: "把定价例外标准补进决策规则。" } });
 }
 
 main().finally(() => prisma.$disconnect());

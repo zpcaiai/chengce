@@ -20,6 +20,7 @@ export function TwinSimulator({ projectId, simulations, canRun }: { projectId: s
   const [scenario, setScenario] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [added, setAdded] = useState<Set<string>>(new Set());
 
   async function run() {
     if (scenario.trim().length < 4) { setError("请先描述一个情景"); return; }
@@ -35,6 +36,15 @@ export function TwinSimulator({ projectId, simulations, canRun }: { projectId: s
     } finally {
       setBusy(false);
     }
+  }
+
+  async function addAction(title: string, scenario: string) {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/actions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: title.slice(0, 160), description: `来自数字孪生：${scenario}` }) });
+      if (!res.ok) { const j = await res.json(); throw new Error(j.error || "加入失败"); }
+      setAdded((s) => new Set(s).add(title));
+      router.refresh();
+    } catch (err) { setError(err instanceof Error ? err.message : "加入失败"); }
   }
 
   return <section className="space-y-4">
@@ -54,7 +64,7 @@ export function TwinSimulator({ projectId, simulations, canRun }: { projectId: s
       <p className="mt-2 text-sm text-slate-300">{sim.prediction.prediction}</p>
       <div className="mt-4 space-y-2">{sim.prediction.effects.map((e, i) => <div key={i}><div className="flex items-center justify-between text-xs"><span className="text-slate-300"><span className={DIR[e.direction]?.tone}>{DIR[e.direction]?.mark}</span> {e.dimension}</span><span className="text-slate-500">{percent(e.magnitude)}</span></div><div className="mt-1 h-1.5 rounded bg-slate-800"><div className={`h-1.5 rounded ${e.direction === "DOWN" ? "bg-rose-600" : e.direction === "FLAT" ? "bg-slate-600" : "bg-emerald-600"}`} style={{ width: percent(e.magnitude) }}/></div><p className="mt-1 text-xs text-slate-500">{e.rationale}</p></div>)}</div>
       {sim.prediction.risks.length > 0 && <div className="mt-3"><p className="text-xs text-rose-300">风险</p><ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-slate-300">{sim.prediction.risks.map((r) => <li key={r}>{r}</li>)}</ul></div>}
-      {sim.prediction.recommendations.length > 0 && <div className="mt-3"><p className="text-xs text-emerald-300">降风险动作</p><ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-emerald-200/90">{sim.prediction.recommendations.map((r) => <li key={r}>{r}</li>)}</ul></div>}
+      {sim.prediction.recommendations.length > 0 && <div className="mt-3"><p className="text-xs text-emerald-300">降风险动作</p><ul className="mt-1 space-y-0.5 text-sm text-emerald-200/90">{sim.prediction.recommendations.map((r) => <li key={r} className="flex items-start justify-between gap-2"><span>· {r}</span>{canRun && <button className="shrink-0 text-xs text-emerald-300 hover:underline disabled:text-slate-600" disabled={added.has(r)} onClick={() => addAction(r, sim.scenario)}>{added.has(r) ? "已加入" : "+ 行动"}</button>}</li>)}</ul></div>}
     </article>)}</div> : <p className="rounded-xl border border-dashed border-slate-800 px-4 py-6 text-sm text-slate-500">还没有模拟。先运行一次诊断建立基线，再模拟一个情景。</p>}
   </section>;
 }
