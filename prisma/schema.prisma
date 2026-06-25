@@ -521,3 +521,17 @@ model Comment {
   createdAt   DateTime      @default(now())
   @@index([projectId, targetType, targetId, createdAt])
 }
+
+model Deck {
+  id          String   @id @default(cuid())
+  workspaceId String?
+  projectId   String?
+  title       String
+  scenario    String   @default("")
+  themeId     String   @default("midnight")
+  slides      Json
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([createdById, createdAt])
+}

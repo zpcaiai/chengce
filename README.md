@@ -127,3 +127,13 @@ prisma generate → prisma db push（按 schema 自动创建/更新表） → pr
 - **报告导出 PPT / Excel**：报告分享处新增「导出 PPT」「导出 Excel」（`/api/snapshots/[id]/pptx`、`/xlsx`，pptxgenjs / exceljs 生成，中文正常）。
 - **行业模板库**：`选择模板` 内置 10 套行业起步模板（B2B SaaS、AI 产品、咨询、电商、制造、代理、教育、平台、空间服务、创始人系统），一键生成带 MVP/实验/能力雏形的工作区。
 - **SSO / SCIM（脚手架）**：企业 SSO（SAML/OIDC）与 SCIM 需对接外部 IdP（Okta / Entra ID / Google Workspace），`src/lib/sso.ts` 已预留接入点，部署时配置 `SSO_*`。
+
+## PPT 工坊（Gamma 式演示生成）
+
+导航「PPT 工坊」(`/decks`)：
+
+- **业务场景模板**：内置 8 套（创始人蓝图汇报、月度经营复盘、投资路演、销售提案、产品发布、季度 OKR、咨询诊断、团队介绍），点「用此模板」即得一份完整演示。
+- **AI 生成**：给主题/场景/受众/要点，`DeckWriter` 自动组织 6–9 页（未配置 `OPENAI_API_KEY` 时用内置示例结构）。
+- **6 套主题 + 8 种版式**（封面/章节/要点/双栏/指标/引言/时间线/结尾），换主题即换肤，所见即所得（`SlideView` 用 container-query 单位缩放）。
+- **编辑**：改标题/正文、增删/上下移页、切主题、保存。
+- **一键导出 PPTX**：`pptxgenjs` 按主题与版式渲染出设计感强的 PPT（左侧色条、强调下划线、圆角指标卡、大字排版），中文正常。
