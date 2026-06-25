@@ -1,0 +1,29 @@
+#!/bin/sh
+# Pre-commit guard: block the "forgot to git add a new file" build-breaker.
+#
+# It fails the commit when an untracked file under src/ is imported via "@/..."
+# somewhere in the tree — exactly the case that broke the Vercel build
+# (ProjectWorkspace.tsx imported @/components/CommentThread that was never added).
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# (Committed to the repo so the whole team gets it.)
+
+untracked=$(git ls-files --others --exclude-standard -- src 2>/dev/null | grep -E '\.(ts|tsx)$' || true)
+[ -z "$untracked" ] && exit 0
+
+missing=""
+for f in $untracked; do
+    spec="@/$(printf '%s' "$f" | sed -E 's#^src/##; s#\.tsx?$##; s#/index$##')"
+    if grep -rqsE "['\"]${spec}(/index)?['\"]" --include='*.ts' --include='*.tsx' src 2>/dev/null; then
+        missing="${missing}
+  ${f}   (imported as ${spec})"
+    fi
+done
+
+if [ -n "$missing" ]; then
+    printf '\n\033[31m✖ Commit blocked\033[0m — these src files are imported but NOT git-added (will break the build):\n%s\n\n' "$missing"
+    printf 'Fix:  git add <the files above>   (or remove the import), then commit again.\n'
+    printf 'Override (not recommended):  git commit --no-verify\n\n'
+    exit 1
+fi
+exit 0
