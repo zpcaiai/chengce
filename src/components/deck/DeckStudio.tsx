@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Slide, Theme } from "@/lib/deck/types";
+import type { Slide, Theme, DeckCategory } from "@/lib/deck/types";
+import { DECK_CATEGORIES } from "@/lib/deck/types";
 import { getTheme } from "@/lib/deck/themes";
 import { SlideView } from "@/components/deck/SlideView";
 
-type Tpl = { id: string; name: string; scenario: string; description: string; themeId: string; cover: Slide };
+type Tpl = { id: string; name: string; scenario: string; category: DeckCategory; description: string; themeId: string; cover: Slide };
 type MyDeck = { id: string; title: string; scenario: string; themeId: string; updatedAt: string };
 type PreviewData = { title: string; themeId: string; scenario: string; slides: Slide[]; sourcePayload: Record<string, unknown> };
 
@@ -80,6 +81,15 @@ export function DeckStudio({ templates, themes, decks }: { templates: Tpl[]; the
   const [points, setPoints] = useState("");
   const [themeId, setThemeId] = useState("midnight");
   const [preview, setPreview] = useState<PreviewData | null>(null);
+  const [activeCategory, setActiveCategory] = useState<DeckCategory | "全部">("全部");
+  const [search, setSearch] = useState("");
+
+  const filteredTemplates = templates.filter((t) => {
+    const matchCat = activeCategory === "全部" || t.category === activeCategory;
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q || t.name.toLowerCase().includes(q) || t.scenario.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
 
   async function fetchPreview(payload: Record<string, unknown>, key: string) {
     setBusy(key); setError("");
@@ -135,23 +145,56 @@ export function DeckStudio({ templates, themes, decks }: { templates: Tpl[]; the
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold">业务场景模板</h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {templates.map((t) => <div key={t.id} className="card overflow-hidden">
-            <div className="overflow-hidden rounded-lg border border-slate-800"><SlideView slide={t.cover} theme={getTheme(t.themeId)} /></div>
-            <div className="mt-3 flex items-start justify-between gap-2">
-              <div><h3 className="font-semibold">{t.name}</h3><p className="mt-0.5 text-xs text-slate-500">{t.scenario}</p></div>
-              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{getTheme(t.themeId).name}</span>
-            </div>
-            <p className="mt-1 line-clamp-2 text-xs text-slate-500">{t.description}</p>
-            <div className="mt-3 flex gap-2">
-              <button className="button-secondary flex-1" disabled={!!busy}
-                onClick={() => fetchPreview({ mode: "template", templateId: t.id }, `prev-${t.id}`)}>
-                {busy === `prev-${t.id}` ? "加载中…" : "预览全部"}
-              </button>
-            </div>
-          </div>)}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">业务场景模板 <span className="text-sm font-normal text-slate-500">({filteredTemplates.length} 套)</span></h2>
+          <input
+            className="w-56"
+            placeholder="搜索模板名称 / 场景…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+
+        {/* category tabs */}
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {(["全部", ...DECK_CATEGORIES] as const).map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`rounded-full px-3 py-1 text-xs transition ${
+                activeCategory === cat
+                  ? "bg-emerald-600 text-white"
+                  : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {filteredTemplates.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-500">没有符合条件的模板，换个关键词试试</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredTemplates.map((t) => <div key={t.id} className="card overflow-hidden">
+              <div className="overflow-hidden rounded-lg border border-slate-800"><SlideView slide={t.cover} theme={getTheme(t.themeId)} /></div>
+              <div className="mt-3 flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold">{t.name}</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">{t.scenario}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">{t.category}</span>
+              </div>
+              <p className="mt-1 line-clamp-2 text-xs text-slate-500">{t.description}</p>
+              <div className="mt-3">
+                <button className="button-secondary w-full" disabled={!!busy}
+                  onClick={() => fetchPreview({ mode: "template", templateId: t.id }, `prev-${t.id}`)}>
+                  {busy === `prev-${t.id}` ? "加载中…" : "预览全部幻灯片"}
+                </button>
+              </div>
+            </div>)}
+          </div>
+        )}
       </section>
 
       {decks.length > 0 && <section>
